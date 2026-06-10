@@ -94,4 +94,4 @@ if st.button("Generate Smart Itinerary", type="primary"):
 
 st.divider()
 st.caption(
-    "The AI Travel Itinerary Planner was built by Matt Delac & adapted by Amy Rowell 💖")
+    "The AI Travel Itinerary Planner was built by Matt Delac & adapted by Amy Rowell")
