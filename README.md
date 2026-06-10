@@ -2,6 +2,8 @@
 
 A dynamic, intelligent Single Page Application (SPA) built entirely in Python using Streamlit. This application uses multiple third-party API handshakes to deliver unified travel itineraries synced alongside real-time departure and arrival weather metrics.
 
+![Application UI](screenshot.png)
+
 ## 🚀 Live Demo
 Experience the live dashboard deployed on my Portfolio: 
 amyrowell.dev
