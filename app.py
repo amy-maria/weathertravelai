@@ -4,9 +4,9 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv()
-API_KEY = os.getenv("API_KEY")
-API_URL = os.getenv("API_URL")
-AI_URL = os.getenv("AI_URL")
+API_KEY = os.getenv("API_KEY") or st.secrets.get("API_KEY")
+API_URL = os.getenv("API_URL") or st.secrets.get("API_URL")
+AI_URL = os.getenv("AI_URL") or st.secrets.get("AI_URL")
 
 
 def get_current_weather(location):
