@@ -11,14 +11,18 @@ AI_URL = os.getenv("AI_URL") or st.secrets.get("AI_URL")
 
 def get_current_weather(location):
     """Fetch real-time temperature and condition for a location."""
-    api_url = f"{API_URL}query={location}&key={API_KEY}&units=imperial"
-     try:
-        response = requests.get(api_url)
+    
+    try:
+        response = requests.get(
+            API_URL.rstrip("?"),
+            params={"query": location, "key": API_KEY, "units": "imperial"},
+            timeout=15,
+        )
         if response.status_code == 200:
             data = response.json()
-            return {
-                "temp": round(data["temperature"]["current"]),
-                "condition": data["condition"]["description"]
+        return {
+            "temp": round(data["temperature"]["current"]),
+            "condition": data["condition"]["description"]
             }
     except Exception:
         return None
@@ -78,11 +82,11 @@ if st.button("Generate Smart Itinerary", type="primary"):
             prompt = f"Generate a travel itinerary from {origin} to {destination} in {duration} days. This is a road trip, keep it short, less than 15 lines, add some emojis (not more than 5) to make readable. If this requires a flight, please give priority to traveling to the airport by the shortest route and with fewer stops and maximizing time at the destination location. Public transportation will be used if the destination is in Europe or the UK. Otherwise, a rental car will be needed at the destination. Don't include costs of flights or rental cars to the cost per day. Add an estimated price of each day in both dollars and the destination currency."
             context = "You are a travel specialist and know the best tourist attractions around the world.You prioritize spending as much time as possible at or near the destination"
             
-
             try:
-                ai_response = requests.get(AI_URL.rstrip("?"),
-                params={"prompt": prompt, "context": context, "key": API_KEY},
-                timeout=60,
+                ai_response = requests.get(
+                    AI_URL.rstrip("?"),
+                    params={"prompt": prompt, "context": context, "key": API_KEY},
+                    timeout=60,
                 )  
                 if ai_response.status_code != 200: st.error(
                     f"AI service return {ai_response.status_code}: "
@@ -91,9 +95,8 @@ if st.button("Generate Smart Itinerary", type="primary"):
                 else:                   
                     ai_data = ai_response.json()
                     itinerary_markdown = ai_data.get(
-                    "answer", "Failed to generate itinerary text.")
-                    
-
+                        "answer", "Failed to generate itinerary text.")
+    
                 # 3. Render Output (Streamlit reads Markdown formatting natively!)
                 st.success("📋 Your Tailored Itinerary")
                 st.markdown(itinerary_markdown)
