@@ -2,11 +2,23 @@ import os
 import streamlit as st
 import requests
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
 API_KEY = os.getenv("API_KEY") or st.secrets.get("API_KEY")
 API_URL = os.getenv("API_URL") or st.secrets.get("API_URL")
-AI_URL = os.getenv("AI_URL") or st.secrets.get("AI_URL")
+GEMINI_MODEL="gemini-3.5-flash-lite"
+
+
+gemini = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options=types.HttpOptions(
+        timeout=20000,                                
+        retry_options=types.HttpRetryOptions(attempts=2),    
+    ),
+)
 
 
 def get_current_weather(location):
@@ -20,18 +32,29 @@ def get_current_weather(location):
         )
         if response.status_code == 200:
             data = response.json()
-        return {
-            "temp": round(data["temperature"]["current"]),
-            "condition": data["condition"]["description"]
+            return {
+                "temp": round(data["temperature"]["current"]),
+                "condition": data["condition"]["description"]
             }
     except Exception:
         return None
 
-
+def stream_itinerary(prompt, context):
+    """Yield the itinerary text piece by piece as Gemini writes it."""
+    stream = gemini.interactions.create(
+        model=GEMINI_MODEL,
+        system_instruction=context,
+        input=prompt,
+        generation_config={"thinking_level": "low"},
+        stream=True,
+    )
+    for event in stream:
+        if event.event_type == "step.delta" and event.delta.type == "text":
+            yield event.delta.text.replace("$", r"\$")
+            
 # --- Streamlit UI Configurations ---
 st.set_page_config(page_title="AI Road Trip Planner",
                    page_icon="🗺️", layout="centered")
-
 st.title("🗺️ AI Road Trip Itinerary Planner")
 st.write("Enter your route details below to dynamically generate metrics and custom AI summaries.")
 
@@ -79,30 +102,19 @@ if st.button("Generate Smart Itinerary", type="primary"):
                     st.write("Weather metrics unavailable.")
 
             # 2. Compile AI Prompt and fetch Itinerary
-            prompt = f"Generate a travel itinerary from {origin} to {destination} in {duration} days. This is a road trip, keep it short, less than 15 lines, add some emojis (not more than 5) to make readable. If this requires a flight, please give priority to traveling to the airport by the shortest route and with fewer stops and maximizing time at the destination location. Public transportation will be used if the destination is in Europe or the UK. Otherwise, a rental car will be needed at the destination. Don't include costs of flights or rental cars to the cost per day. Add an estimated price of each day in both dollars and the destination currency."
-            context = "You are a travel specialist and know the best tourist attractions around the world.You prioritize spending as much time as possible at or near the destination"
+            prompt = f"Generate a travel itinerary from {origin} to {destination} in {duration} days. This is a road trip, keep it short, less than 15 lines, add some emojis (not more than 5) to make readable. If this requires a flight, please give priority to traveling to the airport by the shortest route and with fewer stops and maximizing time at the destination location. Public transportation will be used if the destination is in Europe or the UK. Otherwise, a rental car will be needed at the destination. Don't include costs of flights or rental cars to the cost per day. Add an estimated price of each day in both dollars and the destination currency.Format the answer as a Markdown bulleted list with one bullet per day, starting each bullet with the day in bold, like: - **Day 1:** ..."
+            context = "You are a travel specialist and know the best tourist attractions around the world. You prioritize spending as much time as possible at or near the destination"
             
             try:
-                ai_response = requests.get(
-                    AI_URL.rstrip("?"),
-                    params={"prompt": prompt, "context": context, "key": API_KEY},
-                    timeout=60,
-                )  
-                if ai_response.status_code != 200: st.error(
-                    f"AI service return {ai_response.status_code}: "
-                    f"{ai_response.text[:300]}"
-                )    
-                else:                   
-                    ai_data = ai_response.json()
-                    itinerary_markdown = ai_data.get(
-                        "answer", "Failed to generate itinerary text.")
-    
-                # 3. Render Output (Streamlit reads Markdown formatting natively!)
-                st.success("📋 Your Tailored Itinerary")
-                st.markdown(itinerary_markdown)
+                st.subheader("Your Tailored Itinerary")
+                itinerary_markdown = st.write_stream(stream_itinerary(prompt, context))
+                
+                if not itinerary_markdown:
+                    st.warning("The AI didn't return an itinerary. Please try again.")
 
             except Exception as e:
-                st.error(f"Error communicating with AI Agent: {str(e)}")
+                print(f"Gemini error: {e}")
+                st.error("Sorry, the itinerary service is unavailable right now. Please try again shortly.")
 
 st.divider()
 st.caption(
